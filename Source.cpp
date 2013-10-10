@@ -77,10 +77,22 @@ inline ostream& operator<<(ostream& os, const ini_doc& doc)
 }
 
 template <typename It>
+auto trim_start(It first, It last) -> It
+{
+    return find_if_not(first, last, isspace);
+}
+
+template <typename It>
+auto trim_end(It first, It last) -> It
+{
+    return find_if_not(reverse_iterator<It>(last), reverse_iterator<It>(first), isspace).base();
+}
+
+template <typename It>
 auto trim(It first, It last) -> string
 {
-    first = find_if_not(first, last, isspace);
-    last = find_if_not(reverse_iterator<It>(last), reverse_iterator<It>(first), isspace).base();
+    first = trim_start(first, last);
+    last = trim_end(first, last);
     return {first, last};
 }
 
@@ -93,20 +105,48 @@ auto parse_ini_doc(istream& is) -> ini_doc
 {
     auto result = ini_doc{};
     auto line = string{};
+
+    auto current_section = &result.default_section;
+
     while (getline(is, line))
     {
         auto first = begin(line);
         auto last = end(line);
+
+        // Remove comments
         last = find(first, last, ';');
-        auto split = find(first, last, '=');
-        if (split == last)
+
+        // Remove whitespace
+        first = trim_start(first, last);
+        last = trim_end(first, last);
+
+        // Skip empty lines
+        if (first == last)
         {
             continue;
         }
-        auto name = trim(first, split);
-        auto value = trim(next(split), last);
-        result.default_section.emplace(move(name), move(value));
+
+        // Match section headers
+        if (*first == '[' && *prev(last) == ']')
+        {
+            current_section = &result.sections[string{next(first), prev(last)}];
+            continue;
+        }
+
+        // Match values
+        auto split = find(first, last, '=');
+        if (split != last)
+        {
+            auto name = trim(first, split);
+            auto value = trim(next(split), last);
+
+            current_section->emplace(move(name), move(value));
+            continue;
+        }
+
+        // No match!
     }
+
     return result;
 }
 
@@ -162,11 +202,33 @@ name2=value2 ; a comment
     test_impl("comments", input, expected);
 }
 
+void test_single_section()
+{
+    auto input = R"(
+[section_name]
+name1=value1
+name2=value2
+)";
+    auto expected = ini_doc{
+        {
+            {
+                "section_name",
+                ini_section{
+                    {"name1", "value1"},
+                    {"name2", "value2"},
+                }
+            }
+        }
+    };
+    test_impl("comments", input, expected);
+}
+
 void test()
 {
     test_empty();
     test_default_section();
     test_comments();
+    test_single_section();
 }
 
 int main(int argc, const char* argv[])
