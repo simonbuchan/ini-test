@@ -12,10 +12,48 @@ struct ini_doc
 {
     ini_section default_section;
     unordered_map<string, ini_section> sections;
+
+    ini_doc() = default;
+    ini_doc(ini_section default_section)
+        : ini_doc{move(default_section), {}}
+    {}
+    ini_doc(unordered_map<string, ini_section> sections)
+        : ini_doc{{}, move(sections)}
+    {}
+    ini_doc(ini_section default_section, unordered_map<string, ini_section> sections)
+        : default_section{move(default_section)}, sections{move(sections)}
+    {}
+
+#if CAN_COPY_DOC
+    ini_doc(const ini_doc& other) = default;
+    ini_doc& operator=(const ini_doc& other) = default;
+#else
+    ini_doc(const ini_doc& other) = delete;
+    ini_doc& operator=(const ini_doc& other) = default;
+#endif
+
+#if _MSC_VER < 1900 // then we don't have move defaulting
+    ini_doc(ini_doc&& other) throw()
+    {
+        swap(default_section, other.default_section);
+        swap(sections, other.sections);
+    }
+
+    ini_doc& operator=(ini_doc&& other) throw()
+    {
+        swap(*this, other);
+        return *this;
+    }
+#else
+    ini_doc(ini_doc&& other) noexcept = default;
+    ini_doc& operator=(ini_doc&& other) noexcept = default;
+#endif
 };
 
 inline bool operator==(const ini_doc& l, const ini_doc& r)
 {
+    if (l.default_section != r.default_section)
+        return false;
     return true;
 }
 
@@ -52,9 +90,9 @@ void test_impl(const char* name, const char* input, const ini_doc& expected)
         return;
     }
     cerr << "TEST FAIL: " << name << "\n";
-    cerr << "input:\n" << input << "\n";
-    cerr << "expected:\n" << expected << "\n";
-    cerr << "actual:\n" << actual << "\n";
+    cerr << "input:===============================\n" << input << "\n";
+    cerr << "expected:============================\n" << expected << "\n";
+    cerr << "actual:==============================\n" << actual << "\n";
     abort();
 }
 
@@ -65,9 +103,25 @@ void test_empty()
     test_impl("empty", input, expected);
 }
 
+void test_default_section()
+{
+    auto input = R"(
+name1=value1
+name2=value2
+)";
+    auto expected = ini_doc{
+        ini_section{
+            {"name1", "value1"},
+            {"name2", "value2"},
+        }
+    };
+    test_impl("default section", input, expected);
+}
+
 void test()
 {
     test_empty();
+    test_default_section();
 }
 
 int main(int argc, const char* argv[])
