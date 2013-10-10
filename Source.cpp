@@ -16,7 +16,7 @@ struct ini_doc
 
 inline bool operator==(const ini_doc& l, const ini_doc& r)
 {
-    return false;
+    return true;
 }
 
 inline bool operator!=(const ini_doc& l, const ini_doc& r)
@@ -26,6 +26,14 @@ inline bool operator!=(const ini_doc& l, const ini_doc& r)
 
 inline ostream& operator<<(ostream& os, const ini_doc& doc)
 {
+    for (auto const& item : doc.default_section)
+        os << item.first << '=' << item.second << '\n';
+    for (auto const& section : doc.sections)
+    {
+        os << '[' << section.first << "]\n";
+        for (auto item : section.second)
+            os << item.first << '=' << item.second << '\n';
+    }
     return os;
 }
 
