@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -75,9 +76,35 @@ inline ostream& operator<<(ostream& os, const ini_doc& doc)
     return os;
 }
 
+template <typename It>
+auto trim(It first, It last) -> string
+{
+    first = find_if_not(first, last, isspace);
+    last = find_if_not(reverse_iterator<It>(last), reverse_iterator<It>(first), isspace).base();
+    return {first, last};
+}
+
+auto trim(const string& s) -> string
+{
+    return trim(begin(s), end(s));
+}
+
 auto parse_ini_doc(istream& is) -> ini_doc
 {
-    return {};
+    auto result = ini_doc{};
+    auto line = string{};
+    while (getline(is, line))
+    {
+        auto split = find(begin(line), end(line), '=');
+        if (split == end(line))
+        {
+            continue;
+        }
+        auto name = trim(begin(line), split);
+        auto value = trim(next(split), end(line));
+        result.default_section.emplace(move(name), move(value));
+    }
+    return result;
 }
 
 void test_impl(const char* name, const char* input, const ini_doc& expected)
