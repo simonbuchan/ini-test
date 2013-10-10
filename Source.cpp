@@ -55,7 +55,8 @@ inline bool operator==(const ini_doc& l, const ini_doc& r)
 {
     if (l.default_section != r.default_section)
         return false;
-    return true;
+
+    return l.sections == r.sections;
 }
 
 inline bool operator!=(const ini_doc& l, const ini_doc& r)
