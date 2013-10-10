@@ -150,7 +150,7 @@ auto parse_ini_doc(istream& is) -> ini_doc
     return result;
 }
 
-void test_impl(const char* name, const char* input, const ini_doc& expected)
+void test_equal_impl(const char* name, const char* input, const ini_doc& expected)
 {
     auto actual = parse_ini_doc(istringstream{input});
 
@@ -160,8 +160,26 @@ void test_impl(const char* name, const char* input, const ini_doc& expected)
         return;
     }
     cerr << "TEST FAIL: " << name << "\n";
+    cerr << "expected was not equal to actual\n";
     cerr << "input:===============================\n" << input << "\n";
     cerr << "expected:============================\n" << expected << "\n";
+    cerr << "actual:==============================\n" << actual << "\n";
+    abort();
+}
+
+void test_inequal_impl(const char* name, const char* input, const ini_doc& unexpected)
+{
+    auto actual = parse_ini_doc(istringstream{input});
+
+    if (actual != unexpected)
+    {
+        cout << "TEST PASS: " << name << "\n";
+        return;
+    }
+    cerr << "TEST FAIL: " << name << "\n";
+    cerr << "unexpected was equal to actual\n";
+    cerr << "input:===============================\n" << input << "\n";
+    cerr << "unexpected:==========================\n" << unexpected << "\n";
     cerr << "actual:==============================\n" << actual << "\n";
     abort();
 }
@@ -170,7 +188,7 @@ void test_empty()
 {
     auto input = "";
     auto expected = ini_doc{};
-    test_impl("empty", input, expected);
+    test_equal_impl("empty", input, expected);
 }
 
 void test_default_section()
@@ -185,7 +203,7 @@ name2=value2
             {"name2", "value2"},
         }
     };
-    test_impl("default section", input, expected);
+    test_equal_impl("default section", input, expected);
 }
 
 void test_comments()
@@ -199,7 +217,7 @@ name2=value2 ; a comment
             {"name2", "value2"},
         }
     };
-    test_impl("comments", input, expected);
+    test_equal_impl("comments", input, expected);
 }
 
 void test_single_section()
@@ -220,7 +238,10 @@ name2=value2
             }
         }
     };
-    test_impl("comments", input, expected);
+    test_equal_impl("single section", input, expected);
+
+    auto unexpected = ini_doc{};
+    test_inequal_impl("single section", input, unexpected);
 }
 
 void test()
