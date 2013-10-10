@@ -95,13 +95,16 @@ auto parse_ini_doc(istream& is) -> ini_doc
     auto line = string{};
     while (getline(is, line))
     {
-        auto split = find(begin(line), end(line), '=');
-        if (split == end(line))
+        auto first = begin(line);
+        auto last = end(line);
+        last = find(first, last, ';');
+        auto split = find(first, last, '=');
+        if (split == last)
         {
             continue;
         }
-        auto name = trim(begin(line), split);
-        auto value = trim(next(split), end(line));
+        auto name = trim(first, split);
+        auto value = trim(next(split), last);
         result.default_section.emplace(move(name), move(value));
     }
     return result;
@@ -145,10 +148,25 @@ name2=value2
     test_impl("default section", input, expected);
 }
 
+void test_comments()
+{
+    auto input = R"(
+;name1=value1
+name2=value2 ; a comment
+)";
+    auto expected = ini_doc{
+        ini_section{
+            {"name2", "value2"},
+        }
+    };
+    test_impl("comments", input, expected);
+}
+
 void test()
 {
     test_empty();
     test_default_section();
+    test_comments();
 }
 
 int main(int argc, const char* argv[])
