@@ -15,13 +15,13 @@ struct ini_doc
     unordered_map<string, ini_section> sections;
 
     ini_doc() = default;
-    ini_doc(ini_section default_section)
+    explicit ini_doc(ini_section default_section)
         : ini_doc{move(default_section), {}}
     {}
-    ini_doc(unordered_map<string, ini_section> sections)
+    explicit ini_doc(unordered_map<string, ini_section> sections)
         : ini_doc{{}, move(sections)}
     {}
-    ini_doc(ini_section default_section, unordered_map<string, ini_section> sections)
+    explicit ini_doc(ini_section default_section, unordered_map<string, ini_section> sections)
         : default_section{move(default_section)}, sections{move(sections)}
     {}
 
@@ -30,19 +30,20 @@ struct ini_doc
     ini_doc& operator=(const ini_doc& other) = default;
 #else
     ini_doc(const ini_doc& other) = delete;
-    ini_doc& operator=(const ini_doc& other) = default;
+    ini_doc& operator=(const ini_doc& other) = delete;
 #endif
 
-#if _MSC_VER < 1900 // then we don't have move defaulting
+#if _MSC_FULL_VER <= 180020827 // VS12 Preview: we don't have move defaulting (or noexcept)
     ini_doc(ini_doc&& other) throw()
     {
-        swap(default_section, other.default_section);
-        swap(sections, other.sections);
+        default_section = move(other.default_section);
+        sections = move(other.sections);
     }
 
     ini_doc& operator=(ini_doc&& other) throw()
     {
-        swap(*this, other);
+        default_section = move(other.default_section);
+        sections = move(other.sections);
         return *this;
     }
 #else
@@ -245,12 +246,49 @@ name2=value2
     test_inequal_impl("single section", input, unexpected);
 }
 
+void test_mixed_sections()
+{
+    auto input = R"(
+name=value
+[section1]
+name1=value1
+[section2]
+name3=value3
+[section1]
+name2=value2
+)";
+
+    auto expected_section2 = ini_section{
+        {"name3", "value3"},
+    };
+    auto expected = ini_doc{
+        ini_section{
+            {"name", "value"},
+        },
+        unordered_map<string, ini_section>{
+            {
+                "section1",
+                ini_section{
+                    {"name1", "value1"},
+                    {"name2", "value2"},
+                }
+            },
+            {
+                "section2",
+                move(expected_section2) // Out of line definition due to VS12 Preview code-gen bug.
+            }
+        }
+    };
+    test_equal_impl("mixed sections", input, expected);
+}
+
 void test()
 {
     test_empty();
     test_default_section();
     test_comments();
     test_single_section();
+    test_mixed_sections();
 }
 
 int main(int argc, const char* argv[])
